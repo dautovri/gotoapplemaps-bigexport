@@ -18,13 +18,24 @@ struct ImportJob: Identifiable {
     let id = UUID()
     var guideName: String
     var places: [Place]
+    var fileExtension: String = "json"
     var status: Status = .ready
 
     enum Status: Equatable {
         case ready
-        case importing(Int, Int)  // progress, total
+        case importing(Int, Int)  // saved, total
         case done(Int)            // collections created
         case failed(String)
+    }
+
+    var isActive: Bool {
+        if case .importing = status { return true }
+        return false
+    }
+
+    var isDone: Bool {
+        if case .done = status { return true }
+        return false
     }
 
     static let maxPerCollection = 5000

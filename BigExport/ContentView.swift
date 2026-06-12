@@ -1,5 +1,5 @@
 import SwiftUI
-import MapKit
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @StateObject private var injector = MapsInjector()
@@ -14,215 +14,221 @@ struct ContentView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            // Left panel — job list
-            VStack(spacing: 0) {
-                headerSection
-                Divider()
-                if jobs.isEmpty {
-                    dropZone
-                } else {
-                    jobList
-                }
-            }
-            .frame(width: 300)
-            .background(.background)
-
-            Divider()
-
-            // Right panel — detail + map
-            if let job = selectedJob {
-                jobDetailPanel(job)
-            } else {
-                emptyDetail
-            }
+        NavigationSplitView {
+            sidebarContent
+                .navigationSplitViewColumnWidth(min: 240, ideal: 270, max: 320)
+        } detail: {
+            detailContent
         }
-        .frame(minWidth: 820, minHeight: 520)
         .onDrop(of: [.fileURL], isTargeted: $isDragging) { providers in
             handleDrop(providers)
         }
-        .alert("Error", isPresented: Binding(get: { errorMessage != nil }, set: { _ in errorMessage = nil })) {
-            Button("OK") {}
+        .overlay(alignment: .topLeading) {
+            if isDragging {
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.red, lineWidth: 3)
+                    .padding(4)
+                    .allowsHitTesting(false)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openFilePicker)) { _ in
+            openFilePicker()
+        }
+        .alert("Error", isPresented: Binding(get: { errorMessage != nil },
+                                             set: { _ in errorMessage = nil })) {
+            Button("OK", role: .cancel) {}
         } message: {
             Text(errorMessage ?? "")
         }
     }
 
-    // MARK: - Header
+    // MARK: - Sidebar
 
-    private var headerSection: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "map.fill")
-                .foregroundStyle(.red)
-                .font(.title2)
-            VStack(alignment: .leading, spacing: 1) {
-                Text("BigExport").font(.headline)
-                Text("for Apple Maps").font(.caption).foregroundStyle(.secondary)
-            }
-            Spacer()
-            if !jobs.isEmpty {
-                Button {
-                    openFilePicker()
-                } label: {
-                    Image(systemName: "plus")
+    @ViewBuilder
+    private var sidebarContent: some View {
+        if jobs.isEmpty {
+            dropZone
+        } else {
+            VStack(spacing: 0) {
+                List(selection: $selectedJobID) {
+                    ForEach($jobs) { $job in
+                        JobRow(job: $job)
+                            .tag(job.id)
+                    }
+                    .onDelete { jobs.remove(atOffsets: $0) }
                 }
-                .buttonStyle(.borderless)
-                .help("Add more files")
+                .listStyle(.sidebar)
+
+                Divider()
+                sidebarToolbar
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
     }
 
-    // MARK: - Drop zone (empty state)
-
-    private var dropZone: some View {
-        VStack(spacing: 12) {
-            Spacer()
-            Image(systemName: isDragging ? "arrow.down.circle.fill" : "arrow.down.circle")
-                .font(.system(size: 44))
-                .foregroundStyle(isDragging ? .red : .secondary)
-                .animation(.spring(duration: 0.2), value: isDragging)
-            Text("Drop files here")
-                .font(.title3).fontWeight(.medium)
-            Text("GeoJSON · CSV · KML\nDrop multiple files at once")
-                .font(.caption).foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            Spacer()
-            Button("Choose Files…") { openFilePicker() }
-                .buttonStyle(.borderedProminent)
-                .tint(.red)
-                .padding(.bottom, 24)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(isDragging ? Color.red.opacity(0.06) : Color.clear)
-    }
-
-    // MARK: - Job list
-
-    private var jobList: some View {
-        VStack(spacing: 0) {
-            List(selection: $selectedJobID) {
-                ForEach($jobs) { $job in
-                    JobRow(job: $job)
-                        .tag(job.id)
-                }
-                .onDelete { jobs.remove(atOffsets: $0) }
-            }
-            .listStyle(.sidebar)
-
-            Divider()
-            bottomBar
-        }
-    }
-
-    private var bottomBar: some View {
+    private var sidebarToolbar: some View {
         HStack {
-            Button("Clear All") {
+            Button(role: .destructive) {
                 jobs.removeAll()
                 selectedJobID = nil
+            } label: {
+                Label("Clear All", systemImage: "trash")
             }
             .foregroundStyle(.secondary)
+            .labelStyle(.iconOnly)
             .disabled(isImportingAll)
-            .controlSize(.small)
+            .help("Remove all files")
 
             Spacer()
 
-            let pending = jobs.filter { if case .ready = $0.status { return true }; return false }
+            let pending = jobs.filter { $0.status == .ready }
             if !pending.isEmpty {
-                Button("Import All (\(pending.count))") { runImportAll() }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.red)
-                    .disabled(isImportingAll)
-                    .controlSize(.small)
+                Button {
+                    runImportAll()
+                } label: {
+                    Label("Import All", systemImage: "arrow.down.circle.fill")
+                    Text("Import All (\(pending.count))")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
+                .controlSize(.small)
+                .disabled(isImportingAll)
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
     }
 
-    // MARK: - Detail panel
+    // MARK: - Drop zone
 
-    private func jobDetailPanel(_ job: ImportJob) -> some View {
-        VStack(spacing: 0) {
-            // Name editor
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Guide name").font(.caption).foregroundStyle(.secondary)
-                TextField("Guide name", text: Binding(
-                    get: { jobs.first(where: { $0.id == job.id })?.guideName ?? "" },
-                    set: { newVal in
-                        if let i = jobs.firstIndex(where: { $0.id == job.id }) {
-                            jobs[i].guideName = newVal
-                        }
-                    }
-                ))
-                .textFieldStyle(.roundedBorder)
-                .disabled(job.status != .ready)
+    private var dropZone: some View {
+        VStack(spacing: 14) {
+            Spacer()
+            ZStack {
+                Circle()
+                    .fill(isDragging ? Color.red.opacity(0.1) : Color.secondary.opacity(0.08))
+                    .frame(width: 90, height: 90)
+                Image(systemName: isDragging ? "arrow.down.circle.fill" : "plus.circle.fill")
+                    .font(.system(size: 40))
+                    .foregroundStyle(isDragging ? .red : .secondary)
             }
-            .padding(16)
+            .animation(.spring(duration: 0.2), value: isDragging)
 
-            Divider()
-
-            // Map preview
-            if !job.places.isEmpty {
-                PlacesMapView(places: job.places)
-            } else {
-                emptyDetail
+            VStack(spacing: 4) {
+                Text("Drop files here").font(.headline)
+                Text("GeoJSON · CSV · KML")
+                    .font(.subheadline).foregroundStyle(.secondary)
             }
 
-            // Status footer
-            statusFooter(job)
+            Button("Choose Files…") { openFilePicker() }
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
+            Spacer()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(isDragging ? Color.red.opacity(0.04) : Color.clear)
+    }
+
+    // MARK: - Detail
+
+    @ViewBuilder
+    private var detailContent: some View {
+        if let job = selectedJob {
+            VStack(spacing: 0) {
+                guideNameBar(job)
+                Divider()
+                PlacesMapView(places: job.places)
+                Divider()
+                statusFooter(job)
+            }
+        } else {
+            emptyDetail
+        }
+    }
+
+    private func guideNameBar(_ job: ImportJob) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "map")
+                .foregroundStyle(.red)
+            TextField("Guide name", text: Binding(
+                get: { jobs.first(where: { $0.id == job.id })?.guideName ?? "" },
+                set: { v in
+                    if let i = jobs.firstIndex(where: { $0.id == job.id }) { jobs[i].guideName = v }
+                }
+            ))
+            .textFieldStyle(.roundedBorder)
+            .disabled(job.isActive || job.isDone)
+
+            Text("\(job.places.count) places")
+                .font(.callout).foregroundStyle(.secondary)
+                .layoutPriority(1)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
     }
 
     @ViewBuilder
     private func statusFooter(_ job: ImportJob) -> some View {
-        Divider()
         HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(job.places.count) places")
-                    .fontWeight(.medium)
-                if job.places.count > ImportJob.maxPerCollection {
-                    let n = Int(ceil(Double(job.places.count) / Double(ImportJob.maxPerCollection)))
-                    Text("→ \(n) guides").font(.caption).foregroundStyle(.orange)
-                }
-            }
-            Spacer()
             switch job.status {
             case .ready:
+                if job.places.count > ImportJob.maxPerCollection {
+                    let n = Int(ceil(Double(job.places.count) / Double(ImportJob.maxPerCollection)))
+                    Label("Will create \(n) guides (5,000 places each)", systemImage: "info.circle")
+                        .font(.callout).foregroundStyle(.orange)
+                }
+                Spacer()
                 Button("Add to Maps") { runImport(jobID: job.id) }
-                    .buttonStyle(.borderedProminent).tint(.red)
-                    .disabled(isImportingAll || job.guideName.isEmpty)
+                    .buttonStyle(.borderedProminent)
+                    .tint(.red)
+                    .disabled(job.guideName.isEmpty || isImportingAll)
+                    .keyboardShortcut(.return, modifiers: .command)
+
             case .importing(let done, let total):
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text("\(done)/\(total)").font(.caption).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Importing \(done) of \(total) places…")
+                        .font(.callout).foregroundStyle(.secondary)
+                    ProgressView(value: Double(done), total: Double(total))
+                        .progressViewStyle(.linear).tint(.red)
+                        .frame(maxWidth: 240)
                 }
+                Spacer()
+                ProgressView().controlSize(.small)
+
             case .done(let n):
-                HStack(spacing: 6) {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                    Text(n == 1 ? "Added" : "\(n) guides added").foregroundStyle(.green)
-                    Button("Open Maps") { NSWorkspace.shared.open(URL(string: "maps://")!) }
-                        .controlSize(.small)
+                Label(
+                    n == 1 ? "Guide added to Maps!" : "\(n) guides added to Maps!",
+                    systemImage: "checkmark.circle.fill"
+                )
+                .foregroundStyle(.green).fontWeight(.medium)
+                Spacer()
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("Open Maps → Guides → Share → Copy Link")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Button("Open Maps") {
+                        NSWorkspace.shared.open(URL(string: "maps://")!)
+                    }
+                    .buttonStyle(.bordered).controlSize(.small)
                 }
+
             case .failed(let msg):
                 Label(msg, systemImage: "exclamationmark.circle.fill")
-                    .foregroundStyle(.red).font(.caption)
-                    .lineLimit(2)
+                    .foregroundStyle(.red).font(.callout)
+                Spacer()
+                Button("Retry") { runImport(jobID: job.id) }
+                    .buttonStyle(.bordered).controlSize(.small)
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+        .frame(minHeight: 56)
     }
 
     private var emptyDetail: some View {
-        ZStack {
-            Rectangle().fill(Color(nsColor: .windowBackgroundColor))
-            VStack(spacing: 8) {
-                Image(systemName: "map").font(.system(size: 52)).foregroundStyle(.quaternary)
-                Text("Select a file to preview").foregroundStyle(.quaternary)
-            }
-        }
+        ContentUnavailableView(
+            "No File Selected",
+            systemImage: "map",
+            description: Text("Drop a GeoJSON, CSV, or KML file into the sidebar\nor choose one with ⌘O")
+        )
     }
 
     // MARK: - Actions
@@ -231,11 +237,12 @@ struct ContentView: View {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
-        panel.allowedContentTypes = [.json, .commaSeparatedText, .xml]
+        panel.allowedContentTypes = [.json, .commaSeparatedText, .xml,
+                                      UTType(filenameExtension: "kml") ?? .xml,
+                                      UTType(filenameExtension: "geojson") ?? .json]
         panel.begin { response in
-            if response == .OK {
-                panel.urls.forEach { loadFile($0) }
-            }
+            guard response == .OK else { return }
+            panel.urls.forEach { loadFile($0) }
         }
     }
 
@@ -252,22 +259,23 @@ struct ContentView: View {
     }
 
     private func loadFile(_ url: URL) {
-        // Skip duplicates
         let stem = url.deletingPathExtension().lastPathComponent
         guard !jobs.contains(where: { $0.guideName == stem }) else { return }
-
         guard let data = try? Data(contentsOf: url) else {
             errorMessage = "Could not read \(url.lastPathComponent)"; return
         }
+        let ext = url.pathExtension.lowercased()
         do {
             let places: [Place]
-            switch url.pathExtension.lowercased() {
-            case "json": places = try GeoJSONParser.parse(data)
-            case "csv":  places = try CSVParser.parse(data)
+            switch ext {
+            case "json", "geojson": places = try GeoJSONParser.parse(data)
+            case "csv":             places = try CSVParser.parse(data)
+            case "kml":             places = try KMLParser.parse(data)
             default: throw ParseError.invalidFormat
             }
             guard !places.isEmpty else { throw ParseError.noPlacesFound }
-            let job = ImportJob(guideName: stem, places: places)
+            var job = ImportJob(guideName: stem, places: places)
+            job.fileExtension = ext
             jobs.append(job)
             if selectedJobID == nil { selectedJobID = job.id }
         } catch {
@@ -281,7 +289,11 @@ struct ContentView: View {
         jobs[idx].status = .importing(0, job.places.count)
         Task {
             do {
-                let n = try await injector.importJob(job)
+                let n = try await injector.importJob(job) { done, total in
+                    if let i = jobs.firstIndex(where: { $0.id == jobID }) {
+                        jobs[i].status = .importing(done, total)
+                    }
+                }
                 if let i = jobs.firstIndex(where: { $0.id == jobID }) {
                     jobs[i].status = .done(n)
                 }
@@ -295,56 +307,82 @@ struct ContentView: View {
 
     private func runImportAll() {
         isImportingAll = true
-        let pendingIDs = jobs.filter { if case .ready = $0.status { return true }; return false }.map(\.id)
+        let pendingIDs = jobs.filter { $0.status == .ready }.map(\.id)
         Task {
-            for id in pendingIDs { runImport(jobID: id) }
-            // Wait for all to finish
-            while jobs.contains(where: { if case .importing = $0.status { return true }; return false }) {
-                try? await Task.sleep(for: .milliseconds(300))
+            for id in pendingIDs {
+                runImport(jobID: id)
+                // Wait for this job to finish before starting next (shared Maps DB)
+                while let job = jobs.first(where: { $0.id == id }), job.isActive {
+                    try? await Task.sleep(for: .milliseconds(300))
+                }
             }
             isImportingAll = false
         }
     }
 }
 
-// MARK: - Job row
+// MARK: - Sidebar row
 
 struct JobRow: View {
     @Binding var job: ImportJob
 
     var body: some View {
         HStack(spacing: 10) {
-            statusIcon
-            VStack(alignment: .leading, spacing: 2) {
-                Text(job.guideName)
-                    .lineLimit(1)
-                    .font(.system(.body))
-                Text("\(job.places.count) places")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            ZStack {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(formatColor.opacity(0.15))
+                    .frame(width: 32, height: 32)
+                Text(job.fileExtension.uppercased().prefix(3))
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(formatColor)
             }
-            Spacer()
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(job.guideName).lineLimit(1)
+                statusLabel
+            }
+
+            Spacer(minLength: 0)
+            statusIcon
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 3)
+    }
+
+    private var formatColor: Color {
+        switch job.fileExtension {
+        case "csv": return .green
+        case "kml": return .orange
+        default:    return .blue
+        }
+    }
+
+    @ViewBuilder
+    private var statusLabel: some View {
+        switch job.status {
+        case .ready:
+            Text("\(job.places.count) places")
+                .font(.caption).foregroundStyle(.secondary)
+        case .importing(let done, let total):
+            Text("\(done) / \(total)")
+                .font(.caption).foregroundStyle(.orange)
+        case .done:
+            Text("Added to Maps")
+                .font(.caption).foregroundStyle(.green)
+        case .failed:
+            Text("Failed")
+                .font(.caption).foregroundStyle(.red)
+        }
     }
 
     @ViewBuilder
     private var statusIcon: some View {
         switch job.status {
-        case .ready:
-            Image(systemName: "doc.fill")
-                .foregroundStyle(.secondary)
-                .frame(width: 20)
-        case .importing:
-            ProgressView().controlSize(.mini).frame(width: 20)
+        case .ready:    EmptyView()
+        case .importing: ProgressView().controlSize(.mini)
         case .done:
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-                .frame(width: 20)
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
         case .failed:
-            Image(systemName: "exclamationmark.circle.fill")
-                .foregroundStyle(.red)
-                .frame(width: 20)
+            Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.red)
         }
     }
 }
