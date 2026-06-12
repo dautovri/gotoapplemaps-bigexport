@@ -28,11 +28,13 @@ enum GeoJSONParser {
 enum ParseError: LocalizedError {
     case invalidFormat
     case noPlacesFound
+    case missingColumns(String)
 
     var errorDescription: String? {
         switch self {
-        case .invalidFormat: return "Unrecognized file format."
-        case .noPlacesFound: return "No valid places found in this file."
+        case .invalidFormat:          return "Unrecognized file format."
+        case .noPlacesFound:          return "No valid places found in this file."
+        case .missingColumns(let msg): return "Missing required columns. \(msg)"
         }
     }
 }
