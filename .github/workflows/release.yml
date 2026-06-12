@@ -64,7 +64,26 @@ jobs:
             -exportPath "$RUNNER_TEMP/export" \
             -exportOptionsPlist ExportOptions.plist
 
-      - name: Create DMG
+      - name: Notarize and staple the app
+        env:
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          APP="$RUNNER_TEMP/export/BigExport.app"
+          KEY="$RUNNER_TEMP/AuthKey.p8"
+          echo "$ASC_KEY_P8_BASE64" | base64 --decode > "$KEY"
+          # notarytool needs an archive container, not a bare .app
+          ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/app.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/app.zip" \
+            --key "$KEY" --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER_ID" \
+            --wait --timeout 15m
+          rm -f "$KEY"
+          # staple the ticket onto the app so it passes Gatekeeper offline
+          xcrun stapler staple "$APP"
+          xcrun stapler validate "$APP"
+
+      - name: Create and sign DMG (from stapled app)
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           mkdir -p "$RUNNER_TEMP/dmgroot"
@@ -76,7 +95,7 @@ jobs:
             --sign "Developer ID Application: Ruslan Dautov (27EZNUVV57)" \
             "$RUNNER_TEMP/BigExport-$VERSION.dmg"
 
-      - name: Notarize DMG
+      - name: Notarize and staple the DMG
         env:
           ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
@@ -87,20 +106,11 @@ jobs:
           KEY="$RUNNER_TEMP/AuthKey.p8"
           echo "$ASC_KEY_P8_BASE64" | base64 --decode > "$KEY"
           xcrun notarytool submit "$DMG" \
-            --key "$KEY" \
-            --key-id "$ASC_KEY_ID" \
-            --issuer "$ASC_ISSUER_ID" \
+            --key "$KEY" --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER_ID" \
             --wait --timeout 15m
           rm -f "$KEY"
           xcrun stapler staple "$DMG"
-          # Also staple the .app inside so offline Gatekeeper checks pass:
-          # rebuild the DMG with the stapled app, re-sign, re-staple
-          xcrun stapler staple "$RUNNER_TEMP/dmgroot/BigExport.app"
-          hdiutil create -volname "BigExport" -srcfolder "$RUNNER_TEMP/dmgroot" \
-            -ov -format UDZO "$DMG"
-          codesign --force \
-            --sign "Developer ID Application: Ruslan Dautov (27EZNUVV57)" "$DMG"
-          xcrun stapler staple "$DMG"
+          xcrun stapler validate "$DMG"
 
       - name: Compute SHA256
         run: |
