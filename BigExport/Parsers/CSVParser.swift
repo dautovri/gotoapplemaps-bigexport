@@ -11,13 +11,16 @@ enum CSVParser {
                         .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         guard !lines.isEmpty else { throw ParseError.noPlacesFound }
 
-        let header = parseRow(lines.removeFirst())
+        // Auto-detect delimiter: pick whichever of , ; \t appears most in the header line
+        let delim = detectDelimiter(lines[0])
+
+        let header = parseRow(lines.removeFirst(), delimiter: delim)
                         .map { $0.lowercased().trimmingCharacters(in: .whitespaces) }
 
         // Mode 1: coordinate CSV — has explicit lat/lon columns
         let idx = CoordIndex(header: header)
         if idx.lat >= 0 && idx.lon >= 0 {
-            return parseCoordRows(lines, idx: idx)
+            return parseCoordRows(lines, idx: idx, delimiter: delim)
         }
 
         // Mode 2: Google Maps Takeout — Title + URL columns, coords from URL
@@ -25,7 +28,7 @@ enum CSVParser {
         let ui = header.firstIndex(where: { $0.contains("url") || $0.contains("link") }) ?? -1
         let ni = header.firstIndex(where: { $0.contains("note") || $0.contains("comment") || $0.contains("description") }) ?? -1
         if ti >= 0 && ui >= 0 {
-            return parseTakeoutRows(lines, titleIdx: ti, urlIdx: ui, noteIdx: ni)
+            return parseTakeoutRows(lines, titleIdx: ti, urlIdx: ui, noteIdx: ni, delimiter: delim)
         }
 
         throw ParseError.missingColumns(
@@ -35,9 +38,9 @@ enum CSVParser {
 
     // MARK: - Coordinate-column rows
 
-    private static func parseCoordRows(_ lines: [String], idx: CoordIndex) -> [Place] {
+    private static func parseCoordRows(_ lines: [String], idx: CoordIndex, delimiter: Character) -> [Place] {
         lines.compactMap { line in
-            let cols = parseRow(line)
+            let cols = parseRow(line, delimiter: delimiter)
             guard cols.count > max(idx.name >= 0 ? idx.name : 0, idx.lat, idx.lon) else { return nil }
             let lat = Double(cols[idx.lat].trimmingCharacters(in: .whitespaces))
             let lon = Double(cols[idx.lon].trimmingCharacters(in: .whitespaces))
@@ -55,9 +58,9 @@ enum CSVParser {
 
     // MARK: - Google Maps Takeout rows (Title, Note, URL, Comment)
 
-    private static func parseTakeoutRows(_ lines: [String], titleIdx: Int, urlIdx: Int, noteIdx: Int) -> [Place] {
+    private static func parseTakeoutRows(_ lines: [String], titleIdx: Int, urlIdx: Int, noteIdx: Int, delimiter: Character) -> [Place] {
         lines.compactMap { line in
-            let cols = parseRow(line)
+            let cols = parseRow(line, delimiter: delimiter)
             guard cols.count > max(titleIdx, urlIdx) else { return nil }
             let title = cols[titleIdx].trimmingCharacters(in: .whitespaces)
             guard !title.isEmpty else { return nil }
@@ -69,22 +72,40 @@ enum CSVParser {
         }
     }
 
-    // Extract @lat,lon from a Google Maps URL
+    // Extract coordinates from Google Maps URLs in multiple formats:
+    //   maps/place/Name/@lat,lon        → @lat,lon
+    //   maps/search/lat,lon             → /search/lat,lon
+    //   maps/@lat,lon                   → @lat,lon
     private static func coordsFromGoogleURL(_ url: String) -> (Double, Double)? {
-        guard let range = url.range(of: #"@(-?[\d.]+),(-?[\d.]+)"#, options: .regularExpression) else {
-            return nil
+        let patterns = [
+            #"@(-?[\d.]+),(-?[\d.]+)"#,           // @lat,lon (most common)
+            #"/search/(-?[\d.]+),(-?[\d.]+)"#,    // /search/lat,lon
+        ]
+        for pattern in patterns {
+            guard let range = url.range(of: pattern, options: .regularExpression) else { continue }
+            let match = String(url[range])
+            // Drop leading "@" or "/search/"
+            let coords = match.drop(while: { !$0.isNumber && $0 != "-" })
+            let parts = coords.components(separatedBy: ",")
+            guard parts.count >= 2,
+                  let lat = Double(parts[0]),
+                  let lon = Double(parts[1]) else { continue }
+            return (lat, lon)
         }
-        let match = String(url[range])
-        let parts = match.dropFirst().components(separatedBy: ",")
-        guard parts.count >= 2,
-              let lat = Double(parts[0]),
-              let lon = Double(parts[1]) else { return nil }
-        return (lat, lon)
+        return nil
     }
 
-    // MARK: - RFC 4180 row parser
+    // MARK: - Delimiter detection
 
-    static func parseRow(_ line: String) -> [String] {
+    private static func detectDelimiter(_ line: String) -> Character {
+        let candidates: [Character] = [",", ";", "\t"]
+        let counts = candidates.map { d in (d, line.filter { $0 == d }.count) }
+        return counts.max(by: { $0.1 < $1.1 })?.0 ?? ","
+    }
+
+    // MARK: - RFC 4180 row parser (delimiter-aware)
+
+    static func parseRow(_ line: String, delimiter: Character = ",") -> [String] {
         var fields: [String] = []
         var field = ""
         var inQuotes = false
@@ -96,7 +117,7 @@ enum CSVParser {
                 if inQuotes && next < line.endIndex && line[next] == "\"" {
                     field.append("\""); i = next
                 } else { inQuotes.toggle() }
-            } else if c == "," && !inQuotes {
+            } else if c == delimiter && !inQuotes {
                 fields.append(field); field = ""
             } else { field.append(c) }
             i = line.index(after: i)
