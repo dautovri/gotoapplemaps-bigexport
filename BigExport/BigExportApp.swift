@@ -35,7 +35,7 @@ struct BigExportApp: App {
             // Help menu
             CommandGroup(replacing: .help) {
                 Link("BigExport Website",
-                     destination: URL(string: "https://gotoapplemaps.app")!)
+                     destination: URL(string: "https://gotoapplemaps.com")!)
                 Divider()
                 Button("Show Welcome Screen") {
                     showWelcome = true

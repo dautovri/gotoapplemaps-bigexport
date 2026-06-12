@@ -72,7 +72,7 @@ BigExport processes your files entirely on-device. Place names sent for geocodin
 
 ## Related
 
-Part of the [GoToAppleMaps](https://gotoapplemaps.app) family — open Google Maps links in Apple Maps.
+Part of the [GoToAppleMaps](https://gotoapplemaps.com) family — open Google Maps links in Apple Maps.
 
 ## License
 

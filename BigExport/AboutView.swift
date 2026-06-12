@@ -31,7 +31,7 @@ struct AboutView: View {
             Divider().padding(.horizontal, 40)
 
             HStack(spacing: 20) {
-                Link("gotoapplemaps.app", destination: URL(string: "https://gotoapplemaps.app")!)
+                Link("gotoapplemaps.com", destination: URL(string: "https://gotoapplemaps.com")!)
                 Text("·").foregroundStyle(.tertiary)
                 Link("GoToAppleMaps", destination: URL(string: "https://apps.apple.com/app/id6756026967")!)
             }
