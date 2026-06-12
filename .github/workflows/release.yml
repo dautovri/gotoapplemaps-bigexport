@@ -28,6 +28,13 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -s -k "" "$KCH_PATH"
           security set-keychain-settings -lut 7200 "$KCH_PATH"
 
+      - name: Select newest Xcode on runner
+        run: |
+          XCODE=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE"
+          swift --version | head -1
+
       - name: Install xcodegen
         run: brew install xcodegen
 
@@ -54,16 +61,15 @@ jobs:
 
       - name: Create DMG
         run: |
-          npm install -g create-dmg
           VERSION="${GITHUB_REF_NAME#v}"
-          create-dmg \
-            --overwrite \
-            --dmg-title "BigExport $VERSION" \
-            "$RUNNER_TEMP/export/BigExport.app" \
-            "$RUNNER_TEMP/"
-          # create-dmg names it "AppName Version.dmg"
-          mv "$RUNNER_TEMP/BigExport $VERSION.dmg" "$RUNNER_TEMP/BigExport-$VERSION.dmg" 2>/dev/null || \
-            mv "$RUNNER_TEMP"/BigExport*.dmg "$RUNNER_TEMP/BigExport-$VERSION.dmg"
+          mkdir -p "$RUNNER_TEMP/dmgroot"
+          cp -R "$RUNNER_TEMP/export/BigExport.app" "$RUNNER_TEMP/dmgroot/"
+          ln -s /Applications "$RUNNER_TEMP/dmgroot/Applications"
+          hdiutil create -volname "BigExport" -srcfolder "$RUNNER_TEMP/dmgroot" \
+            -ov -format UDZO "$RUNNER_TEMP/BigExport-$VERSION.dmg"
+          codesign --force \
+            --sign "Developer ID Application: Ruslan Dautov (27EZNUVV57)" \
+            "$RUNNER_TEMP/BigExport-$VERSION.dmg"
 
       - name: Notarize DMG
         env:
@@ -106,23 +112,23 @@ jobs:
         run: |
           git clone "https://x-access-token:$TAP_TOKEN@github.com/dautovri/homebrew-tap.git" tap
           mkdir -p tap/Casks
-          cat > tap/Casks/bigexport.rb << CASK
-cask "bigexport" do
-  version "$VERSION"
-  sha256 "$SHA256"
-
-  url "https://github.com/dautovri/gotoapplemaps-bigexport/releases/download/v#{version}/BigExport-#{version}.dmg"
-  name "BigExport"
-  desc "Import thousands of saved places from Google Maps, CSV, or KML into Apple Maps"
-  homepage "https://gotoapplemaps.com"
-
-  app "BigExport.app"
-
-  zap trash: [
-    "~/Library/Preferences/com.GoToAppleMaps.BigExport.plist",
-  ]
-end
-CASK
+          {
+            echo 'cask "bigexport" do'
+            echo "  version \"$VERSION\""
+            echo "  sha256 \"$SHA256\""
+            echo ''
+            echo '  url "https://github.com/dautovri/gotoapplemaps-bigexport/releases/download/v#{version}/BigExport-#{version}.dmg"'
+            echo '  name "BigExport"'
+            echo '  desc "Import thousands of saved places from Google Maps, CSV, KML, GPX into Apple Maps"'
+            echo '  homepage "https://gotoapplemaps.com"'
+            echo ''
+            echo '  app "BigExport.app"'
+            echo ''
+            echo '  zap trash: ['
+            echo '    "~/Library/Preferences/com.GoToAppleMaps.BigExport.plist",'
+            echo '  ]'
+            echo 'end'
+          } > tap/Casks/bigexport.rb
           cd tap
           git config user.email "actions@github.com"
           git config user.name "GitHub Actions"
