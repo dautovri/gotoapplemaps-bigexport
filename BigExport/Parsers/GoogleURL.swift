@@ -74,10 +74,23 @@ enum GoogleURL {
             guard let r = url.range(of: pattern, options: .regularExpression) else { continue }
             let match = String(url[r])
             guard let hexRange = match.range(of: #"0x[0-9a-fA-F]+"#, options: .regularExpression),
-                  let coords = S2CellID.toLatLon(String(match[hexRange])) else { continue }
+                  let coords = S2CellID.toLatLon(String(match[hexRange])),
+                  isPlausibleS2(coords.lat, coords.lon) else { continue }
             return (coords.lat, coords.lon)
         }
         return nil
+    }
+
+    // The hex in a Google URL is a "feature ID" that is only *usually* a valid
+    // S2 cell. For a small fraction it decodes to garbage — Antarctica, a pole,
+    // or null island — none of which are real saved places. Reject those so the
+    // caller falls back to resolving the place by name instead of dropping a pin
+    // 25,000 km away. Applies ONLY to heuristic S2 decodes, never to explicit
+    // @lat,lng / ?q= coordinates (someone really could be in Antarctica).
+    private static func isPlausibleS2(_ lat: Double, _ lon: Double) -> Bool {
+        if lat < -60 || abs(lat) > 85 { return false }          // Antarctica / poles
+        if abs(lat) < 0.1 && abs(lon) < 0.1 { return false }     // null island
+        return true
     }
 
     private static func pairMatch(_ url: String, _ pattern: String) -> (Double, Double)? {

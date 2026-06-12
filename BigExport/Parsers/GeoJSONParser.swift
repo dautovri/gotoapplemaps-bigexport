@@ -11,30 +11,32 @@ enum GeoJSONParser {
             let location = props["location"] as? [String: Any] ?? [:]
             let googleURL = props["google_maps_url"] as? String ?? ""
 
-            // Name: location.name → non-coordinate ?q= text → address.
-            // Coordinate-only saved pins (?q=lat,lng) have no name anywhere —
-            // fall back to a generated label rather than dropping the place.
+            // Resolve coordinates first: geometry, then the URL. Takeout writes
+            // [0,0] when the export has "no location information" — recover from
+            // google_maps_url (?q=lat,lng or ftid S2 cell).
+            let geometry = feature["geometry"] as? [String: Any]
+            var coordinate: (lat: Double, lon: Double)?
+            if let c = geometry?["coordinates"] as? [Double], c.count >= 2, !(c[0] == 0 && c[1] == 0) {
+                coordinate = (c[1], c[0])
+            } else if let c = GoogleURL.coords(from: googleURL) {
+                coordinate = c
+            }
+
+            // Name: location.name → ?q= place text → address → a generated label
+            // when we still have a valid coordinate (a pin with no name is a
+            // real saved place; don't drop it).
             let urlName = GoogleURL.placeName(from: googleURL)
             let name = (location["name"] as? String)
                 ?? urlName.map { $0.components(separatedBy: ",")[0] }
                 ?? (location["address"] as? String)
-                ?? (GoogleURL.coords(from: googleURL) != nil ? "Saved pin" : nil)
+                ?? (coordinate != nil ? "Saved pin" : nil)
             guard let name, !name.isEmpty else { return nil }
 
             let address = location["address"] as? String ?? urlName ?? ""
             let country = location["country_code"] as? String ?? "US"
 
-            // Coordinates: geometry first; Takeout writes [0,0] when the export
-            // has "no location information" — recover from google_maps_url
-            // (?q=lat,lng or ftid S2 cell), else queue for geocoding.
-            let geometry = feature["geometry"] as? [String: Any]
-            if let coords = geometry?["coordinates"] as? [Double], coords.count >= 2,
-               !(coords[0] == 0 && coords[1] == 0) {
-                return Place(name: name, latitude: coords[1], longitude: coords[0],
-                             address: address, countryCode: country)
-            }
-            if let (lat, lon) = GoogleURL.coords(from: googleURL) {
-                return Place(name: name, latitude: lat, longitude: lon,
+            if let coordinate {
+                return Place(name: name, latitude: coordinate.lat, longitude: coordinate.lon,
                              address: address, countryCode: country)
             }
             if GoogleURL.isShortLink(googleURL) {
