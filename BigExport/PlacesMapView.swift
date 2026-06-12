@@ -14,7 +14,7 @@ struct PlacesMapView: NSViewRepresentable {
 
     func updateNSView(_ map: MKMapView, context: Context) {
         map.removeAnnotations(map.annotations)
-        let annotations = places.prefix(2000).map { place -> MKPointAnnotation in
+        let annotations = places.filter { !$0.needsGeocoding }.prefix(2000).map { place -> MKPointAnnotation in
             let a = MKPointAnnotation()
             a.title = place.name
             a.coordinate = place.coordinate

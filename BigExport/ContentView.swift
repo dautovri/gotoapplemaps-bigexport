@@ -170,6 +170,17 @@ struct ContentView: View {
     private func statusFooter(_ job: ImportJob) -> some View {
         HStack(spacing: 12) {
             switch job.status {
+            case .geocoding(let done, let total):
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Resolving \(done) of \(total) places via Apple Maps…")
+                        .font(.callout).foregroundStyle(.secondary)
+                    ProgressView(value: Double(done), total: Double(max(total, 1)))
+                        .progressViewStyle(.linear).tint(.orange)
+                        .frame(maxWidth: 280)
+                }
+                Spacer()
+                ProgressView().controlSize(.small)
+
             case .ready:
                 if job.places.count > ImportJob.maxPerCollection {
                     let n = Int(ceil(Double(job.places.count) / Double(ImportJob.maxPerCollection)))
@@ -278,8 +289,27 @@ struct ContentView: View {
             job.fileExtension = ext
             jobs.append(job)
             if selectedJobID == nil { selectedJobID = job.id }
+            // Kick off geocoding for any unresolved places
+            if job.unresolvedCount > 0 { geocode(jobID: job.id) }
         } catch {
             errorMessage = "\(url.lastPathComponent): \(error.localizedDescription)"
+        }
+    }
+
+    private func geocode(jobID: UUID) {
+        guard let idx = jobs.firstIndex(where: { $0.id == jobID }) else { return }
+        let total = jobs[idx].unresolvedCount
+        jobs[idx].status = .geocoding(0, total)
+        Task {
+            let resolved = await GeocoderService.resolve(jobs[idx].places) { done, t in
+                if let i = jobs.firstIndex(where: { $0.id == jobID }) {
+                    jobs[i].status = .geocoding(done, t)
+                }
+            }
+            if let i = jobs.firstIndex(where: { $0.id == jobID }) {
+                jobs[i].places = resolved
+                jobs[i].status = .ready
+            }
         }
     }
 
@@ -362,6 +392,9 @@ struct JobRow: View {
         case .ready:
             Text("\(job.places.count) places")
                 .font(.caption).foregroundStyle(.secondary)
+        case .geocoding(let done, let total):
+            Text("Resolving \(done)/\(total)…")
+                .font(.caption).foregroundStyle(.orange)
         case .importing(let done, let total):
             Text("\(done) / \(total)")
                 .font(.caption).foregroundStyle(.orange)
@@ -378,6 +411,7 @@ struct JobRow: View {
     private var statusIcon: some View {
         switch job.status {
         case .ready:    EmptyView()
+        case .geocoding: ProgressView().controlSize(.mini).tint(.orange)
         case .importing: ProgressView().controlSize(.mini)
         case .done:
             Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)

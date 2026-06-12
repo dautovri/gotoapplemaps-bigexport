@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		1B99AE636D495983A585DF86 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6EDAC3549DC459558336A7 /* WelcomeView.swift */; };
 		3740D93A8EBA09A6237DA992 /* BigExportApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D52A54CBD77DF221802EA19E /* BigExportApp.swift */; };
+		481F392BD90C9021BCF9AFC5 /* GeocoderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A90AECE3A11CF1B98DC97945 /* GeocoderService.swift */; };
 		50F8788CF2C90E11F6ED67BC /* MapsInjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D5D509B05E4A36EB2746155 /* MapsInjector.swift */; };
 		62EFF5B726E539FE4213E02F /* MapsProcessManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24EDE9DCC35A46D61EF11953 /* MapsProcessManager.swift */; };
 		6C605DA2C6B091BC2E2EB1FB /* Place.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92948F9925F71D55E9F1E33A /* Place.swift */; };
@@ -29,6 +30,7 @@
 		8FC73C9DF2601041A6383175 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		92948F9925F71D55E9F1E33A /* Place.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Place.swift; sourceTree = "<group>"; };
 		997ADE501C70DE0CCCD742D7 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
+		A90AECE3A11CF1B98DC97945 /* GeocoderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeocoderService.swift; sourceTree = "<group>"; };
 		CCC682002D6D94A4D025EA05 /* CSVParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CSVParser.swift; sourceTree = "<group>"; };
 		D1C55B264915B53E962C9603 /* GeoJSONParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeoJSONParser.swift; sourceTree = "<group>"; };
 		D52A54CBD77DF221802EA19E /* BigExportApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BigExportApp.swift; sourceTree = "<group>"; };
@@ -77,6 +79,7 @@
 			isa = PBXGroup;
 			children = (
 				F350041CBD3D2D8927A0D6D7 /* BlobBuilder.swift */,
+				A90AECE3A11CF1B98DC97945 /* GeocoderService.swift */,
 				3D5D509B05E4A36EB2746155 /* MapsInjector.swift */,
 				24EDE9DCC35A46D61EF11953 /* MapsProcessManager.swift */,
 			);
@@ -164,6 +167,7 @@
 				D0670F9DF3D872B11ECB1AB4 /* CSVParser.swift in Sources */,
 				A1D7D68163242E136380FF65 /* ContentView.swift in Sources */,
 				7CF4E4F9244829668EEB7C0E /* GeoJSONParser.swift in Sources */,
+				481F392BD90C9021BCF9AFC5 /* GeocoderService.swift in Sources */,
 				AC40B23586751BD01692785F /* KMLParser.swift in Sources */,
 				50F8788CF2C90E11F6ED67BC /* MapsInjector.swift in Sources */,
 				62EFF5B726E539FE4213E02F /* MapsProcessManager.swift in Sources */,
