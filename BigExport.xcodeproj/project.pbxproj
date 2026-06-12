@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0FA2C8FB04C3E9E84997DD1B /* S2CellID.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D5DFA31780C44B264E264A6 /* S2CellID.swift */; };
 		1B99AE636D495983A585DF86 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6EDAC3549DC459558336A7 /* WelcomeView.swift */; };
 		2750D0C513946D5C50DF3394 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 34B08BEAF31EE95DB3582D21 /* Assets.xcassets */; };
 		3740D93A8EBA09A6237DA992 /* BigExportApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D52A54CBD77DF221802EA19E /* BigExportApp.swift */; };
@@ -29,6 +30,7 @@
 		3A3B28ED1253C1ECEBBF8ED5 /* KMLParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KMLParser.swift; sourceTree = "<group>"; };
 		3D5D509B05E4A36EB2746155 /* MapsInjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapsInjector.swift; sourceTree = "<group>"; };
 		5045A176B001DAEDB23DD1D8 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		6D5DFA31780C44B264E264A6 /* S2CellID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = S2CellID.swift; sourceTree = "<group>"; };
 		8FC73C9DF2601041A6383175 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		92948F9925F71D55E9F1E33A /* Place.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Place.swift; sourceTree = "<group>"; };
 		997ADE501C70DE0CCCD742D7 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
@@ -84,6 +86,7 @@
 				A90AECE3A11CF1B98DC97945 /* GeocoderService.swift */,
 				3D5D509B05E4A36EB2746155 /* MapsInjector.swift */,
 				24EDE9DCC35A46D61EF11953 /* MapsProcessManager.swift */,
+				6D5DFA31780C44B264E264A6 /* S2CellID.swift */,
 			);
 			path = Engine;
 			sourceTree = "<group>";
@@ -196,6 +199,7 @@
 				62EFF5B726E539FE4213E02F /* MapsProcessManager.swift in Sources */,
 				6C605DA2C6B091BC2E2EB1FB /* Place.swift in Sources */,
 				B67A9BB7AFF4FAEC8F059D44 /* PlacesMapView.swift in Sources */,
+				0FA2C8FB04C3E9E84997DD1B /* S2CellID.swift in Sources */,
 				1B99AE636D495983A585DF86 /* WelcomeView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

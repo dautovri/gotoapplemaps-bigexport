@@ -102,7 +102,10 @@ enum CSVParser {
 
     // MARK: - URL helpers
 
-    // Handles @lat,lon and /search/lat,lon patterns
+    // Resolves coordinates straight from a Google Maps URL, in priority order:
+    //   1. @lat,lon            (place/coordinate URLs)
+    //   2. /search/lat,lon     (dropped pins)
+    //   3. S2 cell ID in data= (Takeout place URLs — exact, offline, no geocoding)
     static func coordsFromGoogleURL(_ url: String) -> (Double, Double)? {
         let patterns = [
             #"@(-?[\d.]+),(-?[\d.]+)"#,
@@ -118,6 +121,8 @@ enum CSVParser {
                   let lon = Double(parts[1]) else { continue }
             return (lat, lon)
         }
+        // Google Takeout place URLs embed the location as an S2 cell ID in data=
+        if let s2 = S2CellID.fromGoogleURL(url) { return (s2.lat, s2.lon) }
         return nil
     }
 
