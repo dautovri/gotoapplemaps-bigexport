@@ -46,6 +46,7 @@ jobs:
 
       - name: Archive
         run: |
+          VERSION="${GITHUB_REF_NAME#v}"
           xcodebuild -project BigExport.xcodeproj \
             -scheme BigExport \
             -configuration Release \
@@ -53,7 +54,8 @@ jobs:
             archive \
             CODE_SIGN_STYLE=Manual \
             "CODE_SIGN_IDENTITY=Developer ID Application: Ruslan Dautov (27EZNUVV57)" \
-            DEVELOPMENT_TEAM=27EZNUVV57
+            DEVELOPMENT_TEAM=27EZNUVV57 \
+            MARKETING_VERSION="$VERSION"
 
       - name: Export .app
         run: |
@@ -90,6 +92,14 @@ jobs:
             --issuer "$ASC_ISSUER_ID" \
             --wait --timeout 15m
           rm -f "$KEY"
+          xcrun stapler staple "$DMG"
+          # Also staple the .app inside so offline Gatekeeper checks pass:
+          # rebuild the DMG with the stapled app, re-sign, re-staple
+          xcrun stapler staple "$RUNNER_TEMP/dmgroot/BigExport.app"
+          hdiutil create -volname "BigExport" -srcfolder "$RUNNER_TEMP/dmgroot" \
+            -ov -format UDZO "$DMG"
+          codesign --force \
+            --sign "Developer ID Application: Ruslan Dautov (27EZNUVV57)" "$DMG"
           xcrun stapler staple "$DMG"
 
       - name: Compute SHA256
