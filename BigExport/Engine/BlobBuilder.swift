@@ -62,7 +62,11 @@ enum BlobBuilder {
     // MARK: - Protobuf primitives
 
     static func encodeVarint(_ n: Int) -> Data {
-        var v = n; var out = Data()
+        // Reinterpret as unsigned 64-bit so the shift is logical (zero-fill).
+        // A signed `>>=` on a negative value sign-extends and never reaches 0 →
+        // infinite loop. This also matches protobuf, which encodes a negative
+        // int64 as a full 10-byte varint of its two's-complement bit pattern.
+        var v = UInt64(bitPattern: Int64(n)); var out = Data()
         repeat {
             var b = UInt8(v & 0x7F); v >>= 7
             if v != 0 { b |= 0x80 }
