@@ -7,9 +7,10 @@ struct WelcomeView: View {
         VStack(spacing: 0) {
             // Hero
             VStack(spacing: 16) {
-                Image(systemName: "map.fill")
-                    .font(.system(size: 56))
-                    .foregroundStyle(.red)
+                Image(nsImage: NSImage(named: "AppIcon") ?? NSApp.applicationIconImage)
+                    .resizable()
+                    .frame(width: 84, height: 84)
+                    .clipShape(.rect(cornerRadius: 18))
                     .padding(.top, 40)
 
                 Text("Welcome to BigExport")

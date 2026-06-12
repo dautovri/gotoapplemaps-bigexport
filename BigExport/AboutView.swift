@@ -3,9 +3,10 @@ import SwiftUI
 struct AboutView: View {
     var body: some View {
         VStack(spacing: 20) {
-            Image(systemName: "map.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(.red)
+            Image(nsImage: NSImage(named: "AppIcon") ?? NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 96, height: 96)
+                .clipShape(.rect(cornerRadius: 20))
 
             VStack(spacing: 4) {
                 Text("BigExport")

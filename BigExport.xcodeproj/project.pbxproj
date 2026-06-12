@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		1B99AE636D495983A585DF86 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6EDAC3549DC459558336A7 /* WelcomeView.swift */; };
+		2750D0C513946D5C50DF3394 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 34B08BEAF31EE95DB3582D21 /* Assets.xcassets */; };
 		3740D93A8EBA09A6237DA992 /* BigExportApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D52A54CBD77DF221802EA19E /* BigExportApp.swift */; };
 		481F392BD90C9021BCF9AFC5 /* GeocoderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A90AECE3A11CF1B98DC97945 /* GeocoderService.swift */; };
 		50F8788CF2C90E11F6ED67BC /* MapsInjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D5D509B05E4A36EB2746155 /* MapsInjector.swift */; };
@@ -24,6 +25,7 @@
 
 /* Begin PBXFileReference section */
 		24EDE9DCC35A46D61EF11953 /* MapsProcessManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapsProcessManager.swift; sourceTree = "<group>"; };
+		34B08BEAF31EE95DB3582D21 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		3A3B28ED1253C1ECEBBF8ED5 /* KMLParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KMLParser.swift; sourceTree = "<group>"; };
 		3D5D509B05E4A36EB2746155 /* MapsInjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapsInjector.swift; sourceTree = "<group>"; };
 		5045A176B001DAEDB23DD1D8 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -98,8 +100,17 @@
 				A6AB3561445775CABB123CC3 /* Engine */,
 				A21DE6719C257F816EACEE7E /* Models */,
 				64A45E6F6470C5C50FD1D3DA /* Parsers */,
+				E3CE5C5762CC48DC40EB98AA /* Resources */,
 			);
 			path = BigExport;
+			sourceTree = "<group>";
+		};
+		E3CE5C5762CC48DC40EB98AA /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				34B08BEAF31EE95DB3582D21 /* Assets.xcassets */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -110,6 +121,7 @@
 			buildConfigurationList = 1EBBD96096EEDFD883AE4AC7 /* Build configuration list for PBXNativeTarget "BigExport" */;
 			buildPhases = (
 				8EA30C897EA1DD69AED81B70 /* Sources */,
+				C76E8B66457CF9C98B8336D1 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -155,6 +167,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C76E8B66457CF9C98B8336D1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2750D0C513946D5C50DF3394 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		8EA30C897EA1DD69AED81B70 /* Sources */ = {
