@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import MapKit
 
 enum GeocoderService {
     typealias ProgressHandler = @Sendable (Int, Int) -> Void
@@ -48,11 +49,26 @@ enum GeocoderService {
 
     private static func geocodeOne(_ place: Place) async -> Place? {
         guard let query = place.geocodingQuery, !query.isEmpty else { return nil }
-        let geocoder = CLGeocoder()
-        let placemarks = try? await geocoder.geocodeAddressString(query)
-        guard let location = placemarks?.first?.location else { return nil }
-        return place.resolved(latitude: location.coordinate.latitude,
-                               longitude: location.coordinate.longitude)
+
+        // POI search first. Google Maps lists store bare business names ("Kimchi
+        // Princess") with no address; MKLocalSearch is built for that and finds
+        // the actual place. CLGeocoder.geocodeAddressString treats the name as an
+        // address and mislocates it worldwide (e.g. Berlin restaurant → India).
+        let req = MKLocalSearch.Request()
+        req.naturalLanguageQuery = query
+        if let resp = try? await MKLocalSearch(request: req).start(),
+           let item = resp.mapItems.first {
+            let c = item.placemark.coordinate
+            return place.resolved(latitude: c.latitude, longitude: c.longitude)
+        }
+
+        // Fallback: address geocoder, for entries that are real addresses.
+        if let placemarks = try? await CLGeocoder().geocodeAddressString(query),
+           let location = placemarks.first?.location {
+            return place.resolved(latitude: location.coordinate.latitude,
+                                   longitude: location.coordinate.longitude)
+        }
+        return nil
     }
 }
 
