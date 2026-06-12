@@ -86,8 +86,22 @@ enum CSVParser {
             guard cols.count > max(titleIdx, urlIdx) else { return nil }
             let title = cols[titleIdx].trimmingCharacters(in: .whitespaces)
             guard !title.isEmpty else { return nil }
-            let url  = cols[urlIdx].trimmingCharacters(in: .whitespaces)
+            var url  = cols[urlIdx].trimmingCharacters(in: .whitespaces)
             let note = noteIdx >= 0 && noteIdx < cols.count ? cols[noteIdx].trimmingCharacters(in: .whitespaces) : ""
+
+            // Sloppy CSVs leave URLs with embedded commas unquoted, splitting
+            // them across cells (…?q=45.98 | 6.89 | …). Rejoin only cells that
+            // look like the severed half of a coordinate; quoted files and
+            // normal trailing Tags/Comment columns are unaffected.
+            if url.hasPrefix("http") {
+                var next = urlIdx + 1
+                while next < cols.count,
+                      cols[next].range(of: #"^-?\d+(\.\d+)?[a-z]?\S*$"#,
+                                       options: .regularExpression) != nil {
+                    url += String(delimiter) + cols[next]
+                    next += 1
+                }
+            }
 
             if let (lat, lon) = GoogleURL.coords(from: url) {
                 return Place(name: title, latitude: lat, longitude: lon, address: note, countryCode: "US")

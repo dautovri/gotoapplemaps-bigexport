@@ -11,11 +11,14 @@ enum GeoJSONParser {
             let location = props["location"] as? [String: Any] ?? [:]
             let googleURL = props["google_maps_url"] as? String ?? ""
 
-            // Name: location.name → non-coordinate ?q= text → address → skip
+            // Name: location.name → non-coordinate ?q= text → address.
+            // Coordinate-only saved pins (?q=lat,lng) have no name anywhere —
+            // fall back to a generated label rather than dropping the place.
             let urlName = GoogleURL.placeName(from: googleURL)
             let name = (location["name"] as? String)
                 ?? urlName.map { $0.components(separatedBy: ",")[0] }
                 ?? (location["address"] as? String)
+                ?? (GoogleURL.coords(from: googleURL) != nil ? "Saved pin" : nil)
             guard let name, !name.isEmpty else { return nil }
 
             let address = location["address"] as? String ?? urlName ?? ""
