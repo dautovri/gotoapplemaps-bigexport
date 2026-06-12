@@ -29,7 +29,7 @@ struct WelcomeView: View {
                 FeatureRow(
                     icon: "arrow.down.doc.fill", color: .blue,
                     title: "Any format",
-                    detail: "Google Maps Takeout (GeoJSON), CSV spreadsheets, KML files"
+                    detail: "Google Takeout (GeoJSON, CSV, Timeline), KML, KMZ, GPX, WKT"
                 )
                 FeatureRow(
                     icon: "square.stack.3d.up.fill", color: .orange,

@@ -48,7 +48,18 @@ enum GeocoderService {
     }
 
     private static func geocodeOne(_ place: Place) async -> Place? {
-        guard let query = place.geocodingQuery, !query.isEmpty else { return nil }
+        guard var query = place.geocodingQuery, !query.isEmpty else { return nil }
+
+        // Shortened Google link — expand the redirect, then read coordinates
+        // straight from the full URL (exact, no search needed).
+        if GoogleURL.isShortLink(query) {
+            guard let expanded = await GoogleURL.expandShortLink(query) else { return nil }
+            if let (lat, lon) = GoogleURL.coords(from: expanded) {
+                return place.resolved(latitude: lat, longitude: lon)
+            }
+            // expanded URL had no coords — fall through to searching by name
+            query = GoogleURL.placeName(from: expanded) ?? place.name
+        }
 
         // POI search first. Google Maps lists store bare business names ("Kimchi
         // Princess") with no address; MKLocalSearch is built for that and finds

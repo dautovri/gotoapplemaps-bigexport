@@ -89,49 +89,22 @@ enum CSVParser {
             let url  = cols[urlIdx].trimmingCharacters(in: .whitespaces)
             let note = noteIdx >= 0 && noteIdx < cols.count ? cols[noteIdx].trimmingCharacters(in: .whitespaces) : ""
 
-            if let (lat, lon) = coordsFromGoogleURL(url) {
+            if let (lat, lon) = GoogleURL.coords(from: url) {
                 return Place(name: title, latitude: lat, longitude: lon, address: note, countryCode: "US")
             }
 
+            // Shortened link — pass the URL itself to the resolve stage, which
+            // expands the redirect and re-extracts coordinates.
+            if GoogleURL.isShortLink(url) {
+                return Place(name: title, latitude: 0, longitude: 0,
+                             address: note, countryCode: "US", geocodingQuery: url)
+            }
+
             // No coords in URL — extract place name for later geocoding
-            let query = placeNameFromGoogleURL(url) ?? title
+            let query = GoogleURL.placeName(from: url) ?? title
             return Place(name: title, latitude: 0, longitude: 0,
                          address: note, countryCode: "US", geocodingQuery: query)
         }
-    }
-
-    // MARK: - URL helpers
-
-    // Resolves coordinates straight from a Google Maps URL, in priority order:
-    //   1. @lat,lon            (place/coordinate URLs)
-    //   2. /search/lat,lon     (dropped pins)
-    //   3. S2 cell ID in data= (Takeout place URLs — exact, offline, no geocoding)
-    static func coordsFromGoogleURL(_ url: String) -> (Double, Double)? {
-        let patterns = [
-            #"@(-?[\d.]+),(-?[\d.]+)"#,
-            #"/search/(-?[\d.]+),(-?[\d.]+)"#,
-        ]
-        for pattern in patterns {
-            guard let range = url.range(of: pattern, options: .regularExpression) else { continue }
-            let match = String(url[range])
-            let coords = match.drop(while: { !$0.isNumber && $0 != "-" })
-            let parts = coords.components(separatedBy: ",")
-            guard parts.count >= 2,
-                  let lat = Double(parts[0]),
-                  let lon = Double(parts[1]) else { continue }
-            return (lat, lon)
-        }
-        // Google Takeout place URLs embed the location as an S2 cell ID in data=
-        if let s2 = S2CellID.fromGoogleURL(url) { return (s2.lat, s2.lon) }
-        return nil
-    }
-
-    // Extract URL-decoded place name from maps/place/Name/data= pattern
-    private static func placeNameFromGoogleURL(_ url: String) -> String? {
-        guard let range = url.range(of: #"maps/place/([^/?#]+)"#, options: .regularExpression) else { return nil }
-        let segment = String(url[range]).replacingOccurrences(of: "maps/place/", with: "")
-        let withSpaces = segment.replacingOccurrences(of: "+", with: " ")
-        return withSpaces.removingPercentEncoding ?? withSpaces
     }
 
     // MARK: - Delimiter detection

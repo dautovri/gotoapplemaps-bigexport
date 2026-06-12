@@ -115,7 +115,7 @@ struct ContentView: View {
 
             VStack(spacing: 4) {
                 Text("Drop files here").font(.headline)
-                Text("GeoJSON · CSV · KML")
+                Text("GeoJSON · CSV · KML · KMZ · GPX · Timeline · WKT")
                     .font(.subheadline).foregroundStyle(.secondary)
             }
 
@@ -248,8 +248,11 @@ struct ContentView: View {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
-        panel.allowedContentTypes = [.json, .commaSeparatedText, .xml,
+        panel.allowedContentTypes = [.json, .commaSeparatedText, .xml, .plainText,
                                       UTType(filenameExtension: "kml") ?? .xml,
+                                      UTType(filenameExtension: "kmz") ?? .archive,
+                                      UTType(filenameExtension: "gpx") ?? .xml,
+                                      UTType(filenameExtension: "wkt") ?? .plainText,
                                       UTType(filenameExtension: "geojson") ?? .json]
         panel.begin { response in
             guard response == .OK else { return }
@@ -279,9 +282,15 @@ struct ContentView: View {
         do {
             let places: [Place]
             switch ext {
-            case "json", "geojson": places = try GeoJSONParser.parse(data)
-            case "csv":             places = try CSVParser.parse(data)
-            case "kml":             places = try KMLParser.parse(data)
+            case "json", "geojson":
+                places = TimelineParser.looksLikeTimeline(data)
+                    ? try TimelineParser.parse(data)
+                    : try GeoJSONParser.parse(data)
+            case "csv", "tsv": places = try CSVParser.parse(data)
+            case "kml":        places = try KMLParser.parse(data)
+            case "kmz":        places = try KMLParser.parse(KMZExtractor.extractKML(from: url))
+            case "gpx":        places = try GPXParser.parse(data)
+            case "wkt", "txt": places = try WKTParser.parse(data)
             default: throw ParseError.invalidFormat
             }
             guard !places.isEmpty else { throw ParseError.noPlacesFound }
@@ -380,9 +389,11 @@ struct JobRow: View {
 
     private var formatColor: Color {
         switch job.fileExtension {
-        case "csv": return .green
-        case "kml": return .orange
-        default:    return .blue
+        case "csv", "tsv":  return .green
+        case "kml", "kmz":  return .orange
+        case "gpx":         return .purple
+        case "wkt", "txt":  return .pink
+        default:            return .blue
         }
     }
 

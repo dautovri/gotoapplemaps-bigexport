@@ -77,15 +77,4 @@ enum S2CellID {
         return (lat, lon)
     }
 
-    // Extract and decode the S2 cell ID from a Google Maps data= URL.
-    // Format: !1s0x<s2CellId>:0x<placeId>
-    static func fromGoogleURL(_ url: String) -> (lat: Double, lon: Double)? {
-        guard let range = url.range(of: #"!1s(0x[0-9a-fA-F]+):0x[0-9a-fA-F]+"#, options: .regularExpression) else {
-            return nil
-        }
-        let match = String(url[range])
-        // pull the first hex token (the cell ID)
-        guard let hexRange = match.range(of: #"0x[0-9a-fA-F]+"#, options: .regularExpression) else { return nil }
-        return toLatLon(String(match[hexRange]))
-    }
 }
