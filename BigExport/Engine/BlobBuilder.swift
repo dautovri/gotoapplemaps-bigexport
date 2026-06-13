@@ -95,4 +95,108 @@ enum BlobBuilder {
     private static func float64Field(_ field: Int, _ v: Double) -> Data {
         encodeVarint((field << 3) | 1) + withUnsafeBytes(of: v.bitPattern.littleEndian) { Data($0) }
     }
+
+    // MARK: - Self-verification
+    //
+    // Read the coordinate back out of a blob the same way Maps does — from the
+    // coordinate section (field 4 with type == 2) → field 8 → field 2 → field 1
+    // → {1: lat, 2: lon}. This is the exact path that was wrong before (nested
+    // one level too deep), which made Maps show every place at 0,0/-180. Reading
+    // it back lets the app prove a blob is actually readable before writing it.
+    static func readCoordinate(from blob: Data) -> (lat: Double, lon: Double)? {
+        var top = Reader(blob)
+        guard let (f, w) = top.tag(), f == 1, w == 2, let inner = top.bytes() else { return nil }
+        var r = Reader(inner)
+        while let (field, wire) = r.tag() {
+            if field == 4, wire == 2, let section = r.bytes() {
+                if sectionType(section) == 2, let c = coordInSection(section) { return c }
+            } else {
+                r.skip(wire)
+            }
+        }
+        return nil
+    }
+
+    // Build a blob for a known coordinate and confirm it reads back correctly.
+    // Catches any structural regression in the blob format before import.
+    static func selfTest() -> Bool {
+        let lat = 12.3456789, lon = -98.7654321
+        let blob = build(name: "SelfTest", lat: lat, lon: lon,
+                         placeID: 2_000_000, localID: 0xF0F0F0F0F0F0F0F0, country: "US")
+        guard let c = readCoordinate(from: blob) else { return false }
+        return abs(c.lat - lat) < 1e-6 && abs(c.lon - lon) < 1e-6
+    }
+
+    private static func sectionType(_ section: Data) -> Int? {
+        var r = Reader(section)
+        while let (f, w) = r.tag() {
+            if f == 1, w == 0 { return r.varint().map(Int.init) }
+            r.skip(w)
+        }
+        return nil
+    }
+
+    private static func coordInSection(_ section: Data) -> (lat: Double, lon: Double)? {
+        // field8 → field2 → field1 → {1: lat (f64), 2: lon (f64)}
+        func descend(_ data: Data, _ field: Int) -> Data? {
+            var r = Reader(data)
+            while let (f, w) = r.tag() {
+                if f == field, w == 2 { return r.bytes() }
+                r.skip(w)
+            }
+            return nil
+        }
+        guard let f8 = descend(section, 8), let f2 = descend(f8, 2), let f1 = descend(f2, 1) else { return nil }
+        var r = Reader(f1); var lat: Double?, lon: Double?
+        while let (f, w) = r.tag() {
+            if w == 1 {
+                let d = r.fixed64()
+                if f == 1 { lat = d } else if f == 2 { lon = d }
+            } else { r.skip(w) }
+        }
+        if let lat, let lon { return (lat, lon) }
+        return nil
+    }
+
+    // Minimal protobuf reader (handles Data slices with non-zero start index).
+    private struct Reader {
+        let d: Data; var i: Int
+        init(_ data: Data) { d = data; i = data.startIndex }
+        mutating func varint() -> UInt64? {
+            var v: UInt64 = 0, s = 0
+            while i < d.endIndex {
+                let b = d[i]; i += 1
+                v |= UInt64(b & 0x7f) << s
+                if b & 0x80 == 0 { return v }
+                s += 7
+            }
+            return nil
+        }
+        mutating func tag() -> (Int, Int)? {
+            guard i < d.endIndex, let t = varint() else { return nil }
+            return (Int(t >> 3), Int(t & 7))
+        }
+        mutating func bytes() -> Data? {
+            guard let len = varint() else { return nil }
+            let end = d.index(i, offsetBy: Int(len), limitedBy: d.endIndex) ?? d.endIndex
+            defer { i = end }
+            return Data(d[i..<end])
+        }
+        mutating func fixed64() -> Double? {
+            guard d.distance(from: i, to: d.endIndex) >= 8 else { return nil }
+            var bits: UInt64 = 0
+            for k in 0..<8 { bits |= UInt64(d[d.index(i, offsetBy: k)]) << (8 * k) }
+            i = d.index(i, offsetBy: 8)
+            return Double(bitPattern: bits)
+        }
+        mutating func skip(_ wire: Int) {
+            switch wire {
+            case 0: _ = varint()
+            case 1: i = d.index(i, offsetBy: 8, limitedBy: d.endIndex) ?? d.endIndex
+            case 2: _ = bytes()
+            case 5: i = d.index(i, offsetBy: 4, limitedBy: d.endIndex) ?? d.endIndex
+            default: i = d.endIndex
+            }
+        }
+    }
 }
