@@ -29,9 +29,13 @@ enum BlobBuilder {
     }
 
     private static func makeCoordSection(lat: Double, lon: Double, country: String) -> Data {
+        // Real fwdgeo blobs put the coordinate at field8 → field2 → field1 →
+        // {1:lat, 2:lon}. We previously had an extra field-2 wrapper (8.2.2.1),
+        // so Maps read a sub-message instead of the lat/lon doubles when it
+        // published the guide to iCloud → exported coordinate became -180.
         let coord = float64Field(1, lat) + float64Field(2, lon)
-        let inner = msgField(2, msgField(1, coord))
-        return sectionWrapper(type: 2, inner: msgField(2, inner), country: country)
+        let inner = msgField(1, coord)                 // field1 { lat, lon }
+        return sectionWrapper(type: 2, inner: msgField(2, inner), country: country)  // field8 { field2 { field1 { … } } }
     }
 
     private static func makeRef(lat: Double, lon: Double, placeID: Int, localID: UInt64) -> Data {
